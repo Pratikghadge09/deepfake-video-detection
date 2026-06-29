@@ -1,0 +1,10 @@
+tensorflow==2.15.0
+protobuf<5.0.0
+opencv-python
+numpy
+scikit-learn
+matplotlib
+seaborn
+streamlit
+tqdm
+pillow

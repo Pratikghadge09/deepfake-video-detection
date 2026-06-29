@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detective | AI Video Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --card-bg: rgba(15, 18, 26, 0.15);
+            --accent-color: #00f2fe;
+            --secondary-accent: #4facfe;
+            --error-color: #ff4b4b;
+            --success-color: #00ff88;
+            --text-main: #e0e6ed;
+            --text-dim: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background-color: var(--bg-color); color: var(--text-main); overflow-x: hidden;
+            background-image: linear-gradient(rgba(5, 7, 10, 0.6), rgba(5, 7, 10, 0.6)), url('/static/ai-bg.webp.webp'); 
+            background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 50px; }
+        h1 { font-size: 3.5rem; font-weight: 800; background: linear-gradient(45deg, var(--accent-color), var(--secondary-accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 15px; letter-spacing: -1px; }
+        .subtitle { font-size: 1.1rem; color: var(--text-dim); max-width: 600px; margin: 0 auto; }
+
+        .upload-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 40px; text-align: center; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); margin-bottom: 40px; transition: transform 0.3s ease; }
+        .upload-card:hover { transform: translateY(-5px); border-color: rgba(0, 242, 254, 0.2); }
+        .upload-zone { border: 2px dashed rgba(79, 172, 254, 0.3); border-radius: 16px; padding: 60px 20px; cursor: pointer; transition: all 0.3s ease; }
+        .upload-zone:hover { background: rgba(79, 172, 254, 0.03); border-color: var(--accent-color); }
+        #fileInput { display: none; }
+        .upload-icon { font-size: 3rem; margin-bottom: 20px; display: block; }
+
+        button { background: linear-gradient(45deg, var(--accent-color), var(--secondary-accent)); color: white; border: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; margin-top: 30px; box-shadow: 0 10px 20px rgba(0, 242, 254, 0.2); }
+        button:hover { transform: scale(1.02); box-shadow: 0 15px 30px rgba(0, 242, 254, 0.4); }
+        button:disabled { filter: grayscale(1); cursor: not-allowed; opacity: 0.5; }
+        .btn-secondary { background: transparent; border: 2px solid var(--accent-color); color: var(--accent-color); box-shadow: none; width: 100%; margin-top: 0; margin-bottom: 30px; }
+        .btn-secondary:hover { background: rgba(0, 242, 254, 0.1); box-shadow: 0 5px 15px rgba(0, 242, 254, 0.2); }
+
+        .result-section { display: none; animation: fadeIn 0.8s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .analysis-card { background: var(--card-bg); backdrop-filter: blur(12px); border-radius: 24px; padding: 30px; border: 1px solid rgba(255, 255, 255, 0.08); position: relative; }
+
+        .label-badge { display: inline-block; padding: 8px 16px; border-radius: 100px; font-weight: 800; font-size: 1.2rem; margin-bottom: 15px; }
+        .badge-fake { background: rgba(255, 75, 75, 0.1); color: var(--error-color); border: 1px solid var(--error-color); }
+        .badge-real { background: rgba(0, 255, 136, 0.1); color: var(--success-color); border: 1px solid var(--success-color); }
+
+        .confidence-circle { width: 120px; height: 120px; border-radius: 50%; border: 6px solid #1a1e26; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; margin: 20px auto; background: rgba(0, 0, 0, 0.2); box-shadow: 0 0 20px rgba(0, 255, 136, 0.2), inset 0 0 10px rgba(0, 255, 136, 0.1); }
+
+        .frame-preview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+        .metrics-container { margin-top: 25px; text-align: left; }
+        .metric-row { margin-bottom: 12px; }
+        .metric-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-bar-bg { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; }
+        .metric-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--secondary-accent)); border-radius: 10px; transition: width 1.5s ease-out; }
+
+        .frame-preview img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); cursor: zoom-in; }
+        .frame-preview img:hover { transform: scale(4.5); z-index: 999; border-color: var(--accent-color); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9); filter: brightness(1.1); }
+
+        .loader { display: none; margin: 20px auto; width: 50px; height: 50px; border: 3px solid rgba(0, 242, 254, 0.1); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #statusText { margin-top: 15px; color: var(--accent-color); font-weight: 400; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DEEPFAKE DETECTIVE</h1>
+            <p class="subtitle">Next-generation temporal analysis for digital authentication. Secure your reality with CNN + LSTM neural networks.</p>
+        </header>
+
+        <section class="upload-card">
+            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                <span class="upload-icon">📁</span>
+                <p id="fileName">Drop video here or click to browse</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 10px;">MP4, AVI or MOV (Max 500MB)</p>
+                <input type="file" id="fileInput" accept="video/*">
+            </div>
+            <button id="analyzeBtn" onclick="analyzeVideo()">ANALYZE FOOTAGE</button>
+            <div class="loader" id="loader"></div>
+            <p id="statusText" style="display: none;">Scanning Temporal Patterns...</p>
+        </section>
+
+        <section class="result-section" id="resultSection">
+            <button id="downloadResultBtn" class="btn-secondary">📥 DOWNLOAD FORENSIC REPORT</button>
+           
+            <div class="result-grid">
+                <div class="analysis-card">
+                    <h3 style="margin-bottom: 20px;">AUTHENTICITY VERDICT</h3>
+                    <div id="verdictBadge" class="label-badge">FAKE</div>
+                    <div class="confidence-circle" id="confidenceValue">85%</div>
+                    
+                    <p style="color: var(--text-dim); line-height: 1.6; margin-bottom: 20px;">Our neural network analyzed the temporal sequence and spatial features of this video for digital manipulation.</p>
+                    
+                    <div class="metrics-container">
+                        <div class="metric-row">
+                            <div class="metric-label"><span>Spatial Coherence</span> <span id="spatialVal">0%</span></div>
+                            <div class="metric-bar-bg"><div class="metric-bar-fill" id="spatialBar" style="width: 0%;"></div></div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label"><span>Temporal Stability</span> <span id="temporalVal">0%</span></div>
+                            <div class="metric-bar-bg"><div class="metric-bar-fill" id="temporalBar" style="width: 0%;"></div></div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label"><span>Artifact Detection</span> <span id="artifactVal">0%</span></div>
+                            <div class="metric-bar-bg"><div class="metric-bar-fill" id="artifactBar" style="width: 0%;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3 style="margin-bottom: 20px;">KEYFRAME ANALYSIS</h3>
+                    <div class="frame-preview" id="frameContainer"></div>
+                    
+                    <p style="margin-top: 20px; color: var(--text-dim); font-size: 0.9rem;">
+                        The system sampled frames uniformly across the video duration for spatial feature extraction.
+                    </p>
+
+                    <div style="text-align: center; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 25px;">
+                        <button id="toggleCamBtn" class="btn-secondary" style="width: auto; margin: 0 auto; padding: 10px 24px; font-size: 0.9rem; display: none;">
+                            🔍 VIEW HEATMAPS
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ===================== PDF REPORT TEMPLATE ===================== -->
+    <div id="printReportTemplate" style="display:none; background:white; color:black; padding:20px 25px 25px 25px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; width:750px; margin:0 auto; box-sizing:border-box;">
+
+        <!-- HEADER -->
+        <div style="text-align:center; background:linear-gradient(135deg,#00f2fe,#4facfe); padding:14px 10px 10px 10px; border-radius:4px; margin-bottom:16px;">
+            <h1 style="margin:0; color:#1a1e26; letter-spacing:1px; font-size:1.6rem;">OFFICIAL FORENSIC ANALYSIS REPORT</h1>
+            <p style="margin:4px 0 0 0; color:#1a1e26; font-weight:bold; font-size:0.8rem;">DEEPFAKE DETECTIVE | CNN + LSTM TEMPORAL SCANNER</p>
+        </div>
+
+        <!-- META TABLE -->
+        <table style="width:100%; margin-bottom:14px; border-collapse:collapse; table-layout:fixed;">
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd; width:34%;"><strong>TARGET FILE:</strong><br><span id="pr_filename" style="word-break:break-all; font-size:0.85rem;"></span></td>
+                <td style="padding:8px; border:1px solid #ddd; width:33%;"><strong>TIMESTAMP:</strong><br><span id="pr_date" style="font-size:0.85rem;"></span></td>
+                <td style="padding:8px; border:1px solid #ddd; width:33%;"><strong>ANALYSIS ID:</strong><br><span id="pr_case" style="font-size:0.85rem;"></span></td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding:8px; border:1px solid #ddd;"><strong>LEAD INVESTIGATOR:</strong> Pratik Ghadge</td>
+            </tr>
+        </table>
+
+        <!-- SECTION 1: Verdict -->
+        <div style="margin-bottom:14px;">
+            <h2 style="border-bottom:2px solid #eee; padding-bottom:6px; color:#1a1e26; font-size:1rem; margin-bottom:8px;">1. AUTHENTICITY VERDICT</h2>
+            <p style="font-size:1rem; margin:6px 0;"><strong>FINAL VERDICT:</strong> <span id="pr_verdict" style="font-weight:800;"></span></p>
+            <p style="font-size:1rem; margin:6px 0;"><strong>AI CONFIDENCE:</strong> <span id="pr_confidence"></span></p>
+        </div>
+
+        <!-- SECTION 2: Metrics -->
+        <div style="margin-bottom:14px;">
+            <h2 style="border-bottom:2px solid #eee; padding-bottom:6px; color:#1a1e26; font-size:1rem; margin-bottom:8px;">2. SUBSYSTEM METRICS</h2>
+            <table style="width:100%; border-collapse:collapse; font-size:0.95rem;">
+                <tr>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee; width:70%;"><strong>Spatial Coherence (CNN):</strong></td>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee; text-align:right; font-weight:700;"><span id="pr_spatial">0</span>%</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee;"><strong>Temporal Stability (LSTM):</strong></td>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee; text-align:right; font-weight:700;"><span id="pr_temporal">0</span>%</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee;"><strong>Artifact Detection (ELA):</strong></td>
+                    <td style="padding:7px 4px; border-bottom:1px solid #eee; text-align:right; font-weight:700;"><span id="pr_artifact">0</span>%</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- SECTION 3: Keyframes — all 3 rows on one page -->
+        <div>
+            <h2 style="border-bottom:2px solid #eee; padding-bottom:6px; color:#1a1e26; font-size:1rem; margin-bottom:8px;">3. KEYFRAME EVIDENCE</h2>
+            <p style="color:#666; font-size:0.8rem; margin-bottom:10px;">Temporal and spatial feature extractions utilized for the above verdict.</p>
+
+            <!-- Row 1: Original Faces -->
+            <p style="font-weight:700; font-size:0.85rem; margin:0 0 6px 0; color:#1a1e26;">Tracked Faces (Original Sequence)</p>
+            <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:12px;">
+                <tr>
+                    <td style="padding:2px; text-align:center;"><img id="pr_f0" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_f1" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_f2" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_f3" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_f4" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                </tr>
+            </table>
+
+            <!-- Row 2: CNN Heatmaps -->
+            <p style="font-weight:700; font-size:0.85rem; margin:0 0 6px 0; color:#1a1e26;">Spatial Coherence (CNN Activation Heatmaps)</p>
+            <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:12px;">
+                <tr>
+                    <td style="padding:2px; text-align:center;"><img id="pr_c0" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_c1" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_c2" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_c3" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_c4" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                </tr>
+            </table>
+
+            <!-- Row 3: ELA -->
+            <p style="font-weight:700; font-size:0.85rem; margin:0 0 6px 0; color:#1a1e26;">Artifact Detection (Error Level Analysis)</p>
+            <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:6px;">
+                <tr>
+                    <td style="padding:2px; text-align:center;"><img id="pr_e0" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_e1" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_e2" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_e3" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                    <td style="padding:2px; text-align:center;"><img id="pr_e4" style="width:100%; height:100px; object-fit:cover; border:1px solid #ccc; display:none; border-radius:3px;"></td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+    <!-- ===================== END PDF TEMPLATE ===================== -->
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
