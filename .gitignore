@@ -1,0 +1,11 @@
+# Virtual Environments
+venn/
+
+# Datasets and User Uploads
+dataset/
+processed data/
+uploads/
+
+# Large Model Weights
+model.h5
+*.h5
